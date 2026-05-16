@@ -1,0 +1,113 @@
+services:
+
+  etcd1:
+    build:
+      dockerfile: Dockerfile.etcd
+    container_name: etcd1
+    environment:
+      ETCD_NAME: etcd1
+      ETCD_DATA_DIR: /var/lib/etcd
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd1:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd1:2380
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: pg-cluster-etcd
+    volumes:
+      - etcd1_data:/var/lib/etcd
+    networks:
+      - pgnet
+
+  etcd2:
+    build:
+      dockerfile: Dockerfile.etcd
+    container_name: etcd2
+    environment:
+      ETCD_NAME: etcd2
+      ETCD_DATA_DIR: /var/lib/etcd
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd2:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd2:2380
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: pg-cluster-etcd
+    volumes:
+      - etcd2_data:/var/lib/etcd
+    networks:
+      - pgnet
+
+  etcd3:
+    build:
+      dockerfile: Dockerfile.etcd
+    container_name: etcd3
+    environment:
+      ETCD_NAME: etcd3
+      ETCD_DATA_DIR: /var/lib/etcd
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd3:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://etcd3:2380
+      ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: pg-cluster-etcd
+    volumes:
+      - etcd3_data:/var/lib/etcd
+    networks:
+      - pgnet
+
+  pg-primary:
+    build: .
+    container_name: pg-primary
+    environment:
+      PATRONI_NAME: pg-primary
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: pg-primary:5432
+    volumes:
+      - pg_primary_data:/var/lib/pgsql/18/data
+      - ./patroni.yml:/etc/patroni/patroni.yml:ro
+    networks:
+      - pgnet
+    depends_on:
+      - etcd1
+      - etcd2
+      - etcd3
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8008/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  pg-sync:
+    build: .
+    container_name: pg-sync
+    environment:
+      PATRONI_NAME: pg-sync
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: pg-sync:5432
+    volumes:
+      - pg_sync_data:/var/lib/pgsql/18/data
+      - ./patroni.yml:/etc/patroni/patroni.yml:ro
+    networks:
+      - pgnet
+    depends_on:
+      - etcd1
+      - etcd2
+      - etcd3
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8008/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+volumes:
+  etcd1_data:
+  etcd2_data:
+  etcd3_data:
+  pg_primary_data:
+  pg_sync_data:
+
+networks:
+  pgnet:
+    driver: bridge
