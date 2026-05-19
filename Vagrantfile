@@ -7,7 +7,6 @@ Vagrant.configure("2") do |config|
     libvirt.memory = 2048
     libvirt.cpus = 2
     libvirt.default_prefix = "fedora42"
-    
   end
 
   # Shared folder configuration
