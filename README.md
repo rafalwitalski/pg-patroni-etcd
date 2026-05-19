@@ -127,8 +127,8 @@ docker exec -it pg-sync psql -U postgres -c "SELECT * FROM test;"
 ## Check Patroni REST API
 
 ```bash
-curl -s http://localhost:8008/leader | python3 -m json.tool
-curl -s http://localhost:8008/health
+docker exec pg-primary curl -s http://localhost:8008/leader | python3 -m json.tool
+docker exec pg-primary curl -s http://localhost:8008/health
 docker exec pg-sync curl -s http://localhost:8008/health
 ```
 
