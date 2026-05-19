@@ -13,8 +13,5 @@ Vagrant.configure("2") do |config|
   config.vm.network "private_network", type: "dhcp"
 
   # Shared folder configuration
-  config.vm.synced_folder ".", "/vagrant",
-    type: "nfs",
-    nfs_udp: false,
-    nfs_version: 4
+  config.vm.synced_folder ".", "/vagrant", type: "rsync"
 end
