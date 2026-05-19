@@ -178,7 +178,7 @@ After step 4 the cluster is healthy again on timeline 2, with the roles swapped.
 ├── docker-compose.yml  # 3 etcd + 2 Patroni/PostgreSQL services
 ├── patroni.yml         # Shared Patroni config; per-node identity via env vars
 ├── docker.sh           # Vagrant shell provisioner — installs Docker, starts cluster
-├── Vagrantfile         # Fedora 42 VM, libvirt provider, NFS shared folder
+├── Vagrantfile         # Fedora 42 VM, libvirt provider, rsync shared folder
 └── README.md
 ```
 
