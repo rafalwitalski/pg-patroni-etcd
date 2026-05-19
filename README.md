@@ -76,7 +76,7 @@ acknowledged until it is written on both nodes, so no data is lost if the leader
 
 - Vagrant with the `vagrant-libvirt` provider
 - libvirt / KVM on the host
-- 4 GB RAM and 2 vCPUs available for the VM
+- 2 GB RAM and 2 vCPUs available for the VM
 
 ---
 

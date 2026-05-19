@@ -4,7 +4,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", path: "docker.sh", run: "always"
 
   config.vm.provider :libvirt do |libvirt|
-    libvirt.memory = 4096
+    libvirt.memory = 2048
     libvirt.cpus = 2
     libvirt.default_prefix = "fedora42"
   end
