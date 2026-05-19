@@ -12,31 +12,31 @@ acknowledged until it is written on both nodes, so no data is lost if the leader
 ## Architecture
 
 ```
-                        ┌─────────────────────────────────────────┐
-                        │  Fedora 42 VM (Vagrant + libvirt)        │
-                        │                                          │
-                        │  ┌─────────────────────────────────┐    │
-                        │  │  Docker network: pgnet           │    │
-                        │  │                                  │    │
-                        │  │   etcd1 ─┐                       │    │
-                        │  │   etcd2 ─┼── Raft consensus      │    │
-                        │  │   etcd3 ─┘        │              │    │
-                        │  │                   │ DCS          │    │
-                        │  │           ┌───────┴────────┐     │    │
-                        │  │           │   pg-primary   │     │    │
-                        │  │           │  Patroni+PG18  │     │    │
-                        │  │           │  Leader (RW)   │     │    │
-                        │  │           └───────┬────────┘     │    │
-                        │  │                   │              │    │
-                        │  │        synchronous replication   │    │
-                        │  │                   │              │    │
-                        │  │           ┌───────┴────────┐     │    │
-                        │  │           │    pg-sync     │     │    │
-                        │  │           │  Patroni+PG18  │     │    │
-                        │  │           │  Standby (RO)  │     │    │
-                        │  │           └────────────────┘     │    │
-                        │  └─────────────────────────────────┘    │
-                        └─────────────────────────────────────────┘
+                        ┌──────────────────────────────────────┐
+                        │   Fedora 42 VM (Vagrant + libvirt)   │
+                        │                                      │
+                        │  ┌──────────────────────────────┐    │
+                        │  │   Docker network: pgnet      │    │
+                        │  │                              │    │
+                        │  │  etcd1 ─┐                    │    │
+                        │  │  etcd2 ─┼── Raft consensus   │    │
+                        │  │  etcd3 ─┘       │            │    │
+                        │  │                 │ DCS        │    │
+                        │  │         ┌───────┴────────┐   │    │
+                        │  │         │   pg-primary   │   │    │
+                        │  │         │  Patroni+PG18  │   │    │
+                        │  │         │  Leader (RW)   │   │    │
+                        │  │         └───────┬────────┘   │    │
+                        │  │                 │            │    │
+                        │  │      synchronous replication │    │
+                        │  │                 │            │    │
+                        │  │         ┌───────┴────────┐   │    │
+                        │  │         │    pg-sync     │   │    │
+                        │  │         │  Patroni+PG18  │   │    │
+                        │  │         │  Standby (RO)  │   │    │
+                        │  │         └────────────────┘   │    │
+                        │  └──────────────────────────────┘    │
+                        └──────────────────────────────────────┘
 ```
 
 ### Components
@@ -118,25 +118,17 @@ Connect to the leader and write data:
 
 ```bash
 docker exec -it pg-primary psql -U postgres -c "
-  CREATE TABLE test(id serial, val text);
-  INSERT INTO test(val) SELECT 'row ' || g FROM generate_series(1,1000) g;
-  SELECT count(*) FROM test;
+  CREATE TABLE test (id serial, val text);
+  INSERT INTO test (val) VALUES ('hello from primary');
 "
+docker exec -it pg-sync psql -U postgres -c "SELECT * FROM test;"
 ```
 
-Read it from the standby (read-only):
+## Check Patroni REST API
 
 ```bash
-docker exec -it pg-sync psql -U postgres -c "SELECT count(*) FROM test;"
-```
-
-Check the Patroni REST API directly:
-
-```bash
-# Leader health
 curl -s http://localhost:8008/leader | python3 -m json.tool
-
-# Standby health
+curl -s http://localhost:8008/health
 docker exec pg-sync curl -s http://localhost:8008/health
 ```
 
@@ -148,7 +140,7 @@ docker exec pg-sync curl -s http://localhost:8008/health
 # 1. Stop the leader
 docker stop pg-primary
 
-# 2. Watch pg-sync get promoted (give it ~15 seconds)
+# 2. Watch pg-sync get promoted 
 docker exec pg-sync patronictl -c /etc/patroni/patroni.yml list
 
 # 3. Confirm writes now go to the promoted node
@@ -156,7 +148,7 @@ docker exec -it pg-sync psql -U postgres -c "INSERT INTO test(val) VALUES ('afte
 
 # 4. Bring the old primary back — it rejoins as a replica via pg_rewind
 docker start pg-primary
-sleep 20
+sleep 5
 docker exec pg-primary patronictl -c /etc/patroni/patroni.yml list
 ```
 

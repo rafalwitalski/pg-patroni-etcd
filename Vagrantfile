@@ -4,16 +4,16 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", path: "docker.sh", run: "always"
 
   config.vm.provider :libvirt do |libvirt|
-  libvirt.memory = 4096 
-  libvirt.cpus = 2
-  libvirt.default_prefix = "pg_patroni_etcd"
- end
-  
-# Private Network
+    libvirt.memory = 4096
+    libvirt.cpus = 2
+    libvirt.default_prefix = "fedora42"
+  end
+
+  # Private Network
   config.vm.network "private_network", type: "dhcp"
 
-# Shared folder configuration
-  config.vm.synced_folder ".", "/vagrant", 
+  # Shared folder configuration
+  config.vm.synced_folder ".", "/vagrant",
     type: "nfs",
     nfs_udp: false,
     nfs_version: 4
