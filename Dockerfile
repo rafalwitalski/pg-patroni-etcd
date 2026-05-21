@@ -10,7 +10,6 @@ RUN dnf install -y \
 RUN pip install patroni[psycopg3,etcd3]
 
 ENV PATH=/usr/pgsql-18/bin:$PATH \
-    PGDATA=/var/lib/pgsql/18/data \
     PGUSER=postgres \
     PGPORT=5432 \
     PGDATABASE=postgres
