@@ -23,17 +23,17 @@ acknowledged until it is written on both nodes, so no data is lost if the leader
                         │  │  etcd3 ─┘       │            │    │
                         │  │                 │ DCS        │    │
                         │  │         ┌───────┴────────┐   │    │
-                        │  │         │   pg-primary   │   │    │
+                        │  │         │   pg-node1   │   │    │
                         │  │         │  Patroni+PG18  │   │    │
-                        │  │         │  Leader (RW)   │   │    │
+                        │  │         │  (role varies) │   │    │
                         │  │         └───────┬────────┘   │    │
                         │  │                 │            │    │
                         │  │      synchronous replication │    │
                         │  │                 │            │    │
                         │  │         ┌───────┴────────┐   │    │
-                        │  │         │    pg-sync     │   │    │
+                        │  │         │    pg-node2     │   │    │
                         │  │         │  Patroni+PG18  │   │    │
-                        │  │         │  Standby (RO)  │   │    │
+                        │  │         │  (role varies) │   │    │
                         │  │         └────────────────┘   │    │
                         │  └──────────────────────────────┘    │
                         └──────────────────────────────────────┘
@@ -44,8 +44,8 @@ acknowledged until it is written on both nodes, so no data is lost if the leader
 | Container | Role | Ports |
 |-----------|------|-------|
 | `etcd1`, `etcd2`, `etcd3` | Raft consensus cluster — Patroni DCS backend | 2379 (client), 2380 (peer) |
-| `pg-primary` | PostgreSQL 18 + Patroni — cluster leader (read/write) | 5432, 8008 (REST API) |
-| `pg-sync` | PostgreSQL 18 + Patroni — synchronous standby (read-only) | 5432, 8008 (REST API) |
+| `pg-node1` | PostgreSQL 18 + Patroni — leader or sync standby (role varies) | 5432, 8008 (REST API) |
+| `pg-node2` | PostgreSQL 18 + Patroni — leader or sync standby (role varies) | 5432, 8008 (REST API) |
 
 ### How failover works
 
@@ -96,7 +96,7 @@ SSH into the VM and check cluster state:
 
 ```bash
 vagrant ssh
-docker exec pg-primary patronictl -c /etc/patroni/patroni.yml list
+docker exec pg-node1 patronictl -c /etc/patroni/patroni.yml list
 ```
 
 Expected output once the cluster is healthy:
@@ -105,8 +105,8 @@ Expected output once the cluster is healthy:
 + Cluster: pg-cluster (xxxxxxxxxxxxxxxx) +-----------+----+-----------+
 | Member     | Host       | Role         | State     | TL | Lag in MB |
 +------------+------------+--------------+-----------+----+-----------+
-| pg-primary | pg-primary | Leader       | running   |  1 |           |
-| pg-sync    | pg-sync    | Sync Standby | streaming |  1 |         0 |
+| pg-node1 | pg-node1 | Leader       | running   |  1 |           |
+| pg-node2    | pg-node2    | Sync Standby | streaming |  1 |         0 |
 +------------+------------+--------------+-----------+----+-----------+
 ```
 
@@ -117,19 +117,19 @@ Expected output once the cluster is healthy:
 Connect to the leader and write data:
 
 ```bash
-docker exec -it pg-primary psql -U postgres -c "
+docker exec -it pg-node1 psql -U postgres -c "
   CREATE TABLE test (id serial, val text);
   INSERT INTO test (val) VALUES ('hello from primary');
 "
-docker exec -it pg-sync psql -U postgres -c "SELECT * FROM test;"
+docker exec -it pg-node2 psql -U postgres -c "SELECT * FROM test;"
 ```
 
 ## Check Patroni REST API
 
 ```bash
-docker exec pg-primary curl -s http://localhost:8008/leader | python3 -m json.tool
-docker exec pg-primary curl -s http://localhost:8008/health
-docker exec pg-sync curl -s http://localhost:8008/health
+docker exec pg-node1 curl -s http://localhost:8008/leader | python3 -m json.tool
+docker exec pg-node1 curl -s http://localhost:8008/health
+docker exec pg-node2 curl -s http://localhost:8008/health
 ```
 
 ---
@@ -138,18 +138,18 @@ docker exec pg-sync curl -s http://localhost:8008/health
 
 ```bash
 # 1. Stop the leader
-docker stop pg-primary
+docker stop pg-node1
 
-# 2. Watch pg-sync get promoted 
-docker exec pg-sync patronictl -c /etc/patroni/patroni.yml list
+# 2. Watch pg-node2 get promoted 
+docker exec pg-node2 patronictl -c /etc/patroni/patroni.yml list
 
 # 3. Confirm writes now go to the promoted node
-docker exec -it pg-sync psql -U postgres -c "INSERT INTO test(val) VALUES ('after failover');"
+docker exec -it pg-node2 psql -U postgres -c "INSERT INTO test(val) VALUES ('after failover');"
 
 # 4. Bring the old primary back — it rejoins as a replica via pg_rewind
-docker start pg-primary
+docker start pg-node1
 sleep 5
-docker exec pg-primary patronictl -c /etc/patroni/patroni.yml list
+docker exec pg-node1 patronictl -c /etc/patroni/patroni.yml list
 ```
 
 After step 4 the cluster is healthy again on timeline 2, with the roles swapped.
