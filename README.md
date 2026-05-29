@@ -192,8 +192,7 @@ drives the whole cluster.
 ## Resetting the cluster
 
 ```bash
-# Destroy all containers and volumes, then rebuild from scratch
-docker compose down -v && docker compose up -d --build
+cd /vagrant && docker compose down -v && docker compose up -d
 ```
 
 The `-v` flag removes named volumes, forcing PostgreSQL to reinitialise and Patroni
